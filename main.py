@@ -1,33 +1,28 @@
-from ollama import chat, list
+import asyncio
+from langchain_ollama.chat_models import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 
-stream = chat(
-  model='llama3.1',
-  messages=[{'role': 'user', 'content': 'fetch in js'}],
-  stream=True,
+llm = ChatOllama(model="llama3.1")
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant."),
+    ("user", "{input}")
+])
+output_parser = StrOutputParser()
+chain = prompt | llm | output_parser
 
-)
 
-in_thinking = False
-content = ''
-thinking = ''
+async def get_streamed_response():
+    print("Assistant: ", end="", flush=True)
 
-print(list())
-print('======')
-for chunk in stream:
-  if chunk.message.thinking:
-    if not in_thinking:
-      in_thinking = True
-      print('Thinking:\n', end='', flush=True)
-    print(chunk.message.thinking, end='', flush=True)
-    # accumulate the partial thinking
-    thinking += chunk.message.thinking
-  elif chunk.message.content:
-    if in_thinking:
-      in_thinking = False
-      print('\n\nAnswer:\n', end='', flush=True)
-    print(chunk.message.content, end='', flush=True)
-    # accumulate the partial content
-    content += chunk.message.content
+    async for chunk in chain.astream({"input": "What's the recipe for a good omelette?"}):
+        print(chunk, end="", flush=True)
+    print()
 
-  # append the accumulated fields to the messages for the next request
-  new_messages = [{ 'role': 'assistant', thinking: thinking, content: content }]
+
+async def main():
+    await get_streamed_response()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
